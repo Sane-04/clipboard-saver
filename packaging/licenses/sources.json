@@ -1,0 +1,9 @@
+{
+  "Qt-LGPL-3.0-only.txt": "https://raw.githubusercontent.com/qt/qtbase/dev/LICENSES/LGPL-3.0-only.txt",
+  "Qt-GPL-3.0-only.txt": "https://raw.githubusercontent.com/qt/qtbase/dev/LICENSES/GPL-3.0-only.txt",
+  "Qt-GPL-exception-1.0.txt": "https://raw.githubusercontent.com/qt/qtbase/dev/LICENSES/Qt-GPL-exception-1.0.txt",
+  "RapidOCR-Apache-2.0.txt": "https://raw.githubusercontent.com/RapidAI/RapidOCR/main/LICENSE",
+  "Loguru-MIT.txt": "https://raw.githubusercontent.com/Delgan/loguru/master/LICENSE",
+  "OpenSSL-Apache-2.0.txt": "https://raw.githubusercontent.com/openssl/openssl/openssl-3.5.7/LICENSE.txt",
+  "PaddleOCR-Apache-2.0.txt": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/LICENSE"
+}

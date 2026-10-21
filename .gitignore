@@ -1,0 +1,11 @@
+__pycache__/
+.pytest_cache/
+data/
+*.pyc
+
+# 本机开发资料与个人入口，不进入仓库
+DEV_PLAN.md
+docs/
+.agent-workbench/
+*.lnk
+调试启动.cmd

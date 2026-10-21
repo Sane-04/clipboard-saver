@@ -1,0 +1,3 @@
+# 本次在 sane 环境实测的依赖，由 pip 安装其必需的传递依赖。
+rapidocr==3.9.2
+onnxruntime==1.30.0
