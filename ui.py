@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QScrollArea,
     QSplitter, QStackedWidget, QStyle, QStyledItemDelegate, QVBoxLayout, QWidget,
 )
-from ui_theme import ACCENT, INK, MUTED, STYLE, icon
+from ui_theme import ACCENT, INK, MARK, MARK_BORDER, MARK_CHIP, MARK_INK, MARK_SOFT, MUTED, STYLE, icon
 from shortcut_settings import DEFAULT_SHORTCUTS
 from window_pin import TopmostButton
 
@@ -212,9 +212,12 @@ class HistoryDelegate(QStyledItemDelegate):
             return
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#edf1ff" if selected else "#f1f3f7" if hovered else "#ffffff"))
-        painter.drawRoundedRect(rect, 8, 8)
+        marked = bool(row["marked"])
+        painter.setPen(QPen(QColor(MARK_BORDER), 1) if marked else Qt.PenStyle.NoPen)
+        fill = "#edf1ff" if selected else ("#ffefc2" if marked else "#f1f3f7") if hovered else \
+            MARK_SOFT if marked else "#ffffff"
+        painter.setBrush(QColor(fill))
+        painter.drawRoundedRect(QRectF(rect).adjusted(0.5, 0.5, -0.5, -0.5), 8, 8)
         if selected:
             painter.fillRect(QRectF(rect.left(), rect.top() + 12, 3, rect.height() - 24), QColor(ACCENT))
         content = rect.adjusted(13, 11, -13, -10)
@@ -243,12 +246,34 @@ class HistoryDelegate(QStyledItemDelegate):
                          painter.fontMetrics().elidedText(title, Qt.TextElideMode.ElideRight, int(body.width())))
         painter.setFont(QFont("Microsoft YaHei UI", 9))
         painter.setPen(QColor(MUTED))
-        if row["marked"]:
-            subtitle += " · ★ " + (row["tag"] or "特殊标记")
         subtitle_rect = QRectF(left, content.top() + 31, max(1, content.right() - left), 21)
-        painter.drawText(subtitle_rect, Qt.AlignmentFlag.AlignVCenter,
-                         painter.fontMetrics().elidedText(subtitle, Qt.TextElideMode.ElideRight,
-                                                         int(subtitle_rect.width())))
+        metrics = painter.fontMetrics()
+        if marked:
+            # 标签做成琥珀色胶囊，紧跟在类型/尺寸后面；空间不足时省略标签文字。
+            subtitle_width = min(metrics.horizontalAdvance(subtitle) + 1, subtitle_rect.width() - 80)
+            painter.drawText(QRectF(subtitle_rect.left(), subtitle_rect.top(), subtitle_width,
+                                    subtitle_rect.height()), Qt.AlignmentFlag.AlignVCenter,
+                             metrics.elidedText(subtitle, Qt.TextElideMode.ElideRight, int(subtitle_width)))
+            tag_font = QFont("Microsoft YaHei UI", 9)
+            tag_font.setBold(True)
+            painter.setFont(tag_font)
+            chip_left = subtitle_rect.left() + subtitle_width + 8
+            room = subtitle_rect.right() - chip_left - 30
+            tag = painter.fontMetrics().elidedText(row["tag"] or "特殊标记", Qt.TextElideMode.ElideRight,
+                                                   int(max(0, room)))
+            chip = QRectF(chip_left, subtitle_rect.center().y() - 10,
+                          painter.fontMetrics().horizontalAdvance(tag) + 30, 20)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(MARK_CHIP))
+            painter.drawRoundedRect(chip, 10, 10)
+            icon("star-filled", MARK).paint(painter, int(chip.left() + 6), int(chip.top() + 3), 14, 14)
+            painter.setPen(QColor(MARK_INK))
+            painter.drawText(chip.adjusted(23, 0, -7, 0), Qt.AlignmentFlag.AlignVCenter, tag)
+            painter.setFont(QFont("Microsoft YaHei UI", 9))
+            painter.setPen(QColor(MUTED))
+        else:
+            painter.drawText(subtitle_rect, Qt.AlignmentFlag.AlignVCenter,
+                             metrics.elidedText(subtitle, Qt.TextElideMode.ElideRight, int(subtitle_rect.width())))
         if row["pinned"] and row["kind"] == "image":
             painter.drawText(content, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom, "已固定")
         painter.restore()
@@ -429,9 +454,10 @@ class HistoryWindow(QMainWindow):
             lambda: self.mark_requested.emit(self.current_id) if self.current_id is not None else None)
         mark_row.addWidget(self.mark_button)
         self.tag_label = QLabel()
-        self.tag_label.setObjectName("muted")
+        self.tag_label.setObjectName("markTag")
         self.tag_label.setWordWrap(True)
         self.tag_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.tag_label.hide()
         mark_row.addWidget(self.tag_label, 1)
         preview_layout.addLayout(mark_row)
         self.preview_stack = QStackedWidget()
@@ -515,6 +541,14 @@ class HistoryWindow(QMainWindow):
         self.kind = kind
         self.category_buttons[kind].setChecked(True)
         self.refresh()
+
+    def set_mark_button(self, marked):
+        self.mark_button.setText("编辑标记" if marked else "特殊标记")
+        self.mark_button.setIcon(icon("star-filled", MARK) if marked else icon("star"))
+        # 改 objectName 后需要重新套用样式表，按钮才会切换琥珀色外观。
+        self.mark_button.setObjectName("marked" if marked else "quiet")
+        self.mark_button.style().unpolish(self.mark_button)
+        self.mark_button.style().polish(self.mark_button)
 
     def set_marked_only(self, enabled):
         self.marked_only = enabled
@@ -617,7 +651,8 @@ class HistoryWindow(QMainWindow):
             self.current_id = self.current_key = None
             self.metadata.setText("内容预览")
             self.tag_label.clear()
-            self.mark_button.setText("特殊标记")
+            self.tag_label.hide()
+            self.set_mark_button(False)
             filtered = bool(self.search.text() or self.kind or self.date_start or self.marked_only)
             values = self.shortcut_store.bindings if self.shortcut_store else DEFAULT_SHORTCUTS
             self.empty_label.setText("该条件下没有匹配记录\n\n试试其他日期、关键词或内容分类。" if filtered else
@@ -628,9 +663,9 @@ class HistoryWindow(QMainWindow):
         self.current_key = (row["id"], row["copy_day"])
         record = self.storage.get_record(self.current_id)
         self.pin_button.setText("取消固定" if row["pinned"] else "固定")
-        self.mark_button.setText("编辑标记" if record["marked"] else "特殊标记")
-        self.mark_button.setIcon(icon("star", ACCENT if record["marked"] else MUTED))
+        self.set_mark_button(bool(record["marked"]))
         self.tag_label.setText(f'★ {record["tag"] or "已特殊标记"}' if record["marked"] else "")
+        self.tag_label.setVisible(bool(record["marked"]))
         meta = f'{row["copy_day"]} {display_time(row["display_at"])[11:]}'
         if row["kind"] == "text":
             self.edit_content_button.show()

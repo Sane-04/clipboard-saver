@@ -6,6 +6,12 @@ from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
 ACCENT = "#4265e8"
 INK = "#202633"
 MUTED = "#747d8d"
+# 特殊标记统一使用琥珀色，与蓝色的选中状态区分。
+MARK = "#e0a100"
+MARK_INK = "#7a4d00"
+MARK_SOFT = "#fff7e0"
+MARK_CHIP = "#ffe7a3"
+MARK_BORDER = "#f0cf7a"
 
 STYLE = """
 QWidget { font-family: "Microsoft YaHei UI"; font-size: 13px; color: #202633; }
@@ -15,6 +21,12 @@ QLabel#heading { font-size: 20px; font-weight: 600; }
 QLabel#muted { color: #747d8d; }
 QLabel#error { color: #b44242; }
 QLabel#status { color: #508a72; font-size: 12px; }
+QLabel#markTag {
+    background: #ffe7a3; color: #7a4d00; border: 1px solid #f0cf7a; border-radius: 8px;
+    padding: 5px 10px; font-size: 15px; font-weight: 600;
+}
+QPushButton#marked { background: #fff7e0; color: #7a4d00; border-color: #f0cf7a; font-weight: 600; }
+QPushButton#marked:hover { background: #ffefc2; }
 QLabel#panelTitle { font-size: 14px; font-weight: 600; }
 QFrame#preview, QFrame#tools, QFrame#properties {
     background: white; border: 1px solid #e3e7ee; border-radius: 10px;
@@ -127,6 +139,9 @@ def icon(name, color=MUTED):
     p.setPen(QPen(QColor(color), 1.7, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap,
                  Qt.PenJoinStyle.RoundJoin))
     p.setBrush(Qt.BrushStyle.NoBrush)
+    if name == "star-filled":
+        name = "star"
+        p.setBrush(QColor(color))
     paths = {
         "crop": [(6, 2), (6, 18), (22, 18), None, (2, 6), (18, 6), (18, 22)],
         "select": [(5, 3), (5, 20), (10, 15), (14, 22), (17, 20), (13, 13), (21, 12), (5, 3)],
