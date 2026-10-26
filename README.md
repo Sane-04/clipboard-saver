@@ -1,96 +1,60 @@
 # 剪贴收藏 Clipboard Saver
 
-一个 Windows 本地剪贴板工具：自动记录复制过的文字和图片，自带截图标注、滚动长截图，以及本地 OCR 文字提取和图片翻译。所有历史只保存在本机。
+Windows 剪贴板历史工具。自动记下你复制过的文字和图片，随时找回再粘贴；还自带截图标注、滚动长截图和图片文字识别/翻译。所有数据只保存在本机。
 
-## 功能
+<p align="center"><img src="screenshots/main.png" width="720" alt="历史主窗口：按日期分组的记录，带特殊标记与标签"></p>
 
-- **剪贴板历史**：自动记录文字和静态图片，同一内容自动去重；可以按日期查询（今天、昨天、最近 7 天、自定义范围），也能按关键词搜索、固定、加特殊标记和标签；保留条数可以设置。
-- **截图标注**：框选后还能移动或缩放选区；支持马赛克/实色打码、自由线/直线、箭头、文字，可撤销和重做。
-- **滚动长截图**：默认由你手动滚动，程序自动拼接，采集时有实时预览；也可以开启自动滚动。
-- **文字提取**：用 [RapidOCR](https://github.com/RapidAI/RapidOCR) 在本机识别，不上传图片；长图会分片识别。
-- **图片翻译**：只在你主动点击时，调用你自己配置的 OpenAI 兼容接口。译文可以覆盖原文，绘制回图片上。
-- **其他**：托盘常驻、可修改的全局快捷键、只运行一个实例、开机自启、把任意窗口置顶（图钉选窗）、独立图片查看器（Ctrl+滚轮缩放）。
+## 安装
 
-## 默认快捷键
+到 [Releases](https://github.com/Sane-04/clipboard-saver/releases/latest) 下载 `ClipboardSaver-<版本>-Setup-x64.exe`，双击安装即可（Windows 10/11 x64，无需管理员权限）。
 
-| 操作 | 快捷键 |
+- 不想安装：下载 `ClipboardSaver-<版本>-Windows-x64.zip`，解压后运行 `剪贴收藏.exe`。
+- 如果 Windows 提示「已保护你的电脑」，点「更多信息 → 仍要运行」。安装包没有代码签名，可以用 Release 里的 SHA256 核对文件。
+
+## 使用
+
+| 操作 | 方法 |
 | --- | --- |
-| 调出历史 | Ctrl+Shift+V |
-| 截图 | Ctrl+Alt+X |
-| 滚动长截图 | Ctrl+Alt+L |
-| 完成编辑（复制并保存） | Ctrl+Enter |
-| 撤销 / 重做 | Ctrl+Z / Ctrl+Y |
+| 找回复制过的内容 | `Ctrl+Shift+V` 调出历史，双击或按 `Enter` 复制，再到目标位置 `Ctrl+V` |
+| 截图 | `Ctrl+Alt+X` 框选，标注或打码后按 `Ctrl+Enter` 复制并保存 |
+| 滚动长截图 | `Ctrl+Alt+L` 框选区域，手动慢慢向下滚动，程序自动拼接 |
+| 识别/翻译图片文字 | 选中一张图片，点「文本提取与翻译」 |
+| 标记重要内容 | 选中记录，点「特殊标记」，可以加一个标签，之后能搜索或只看标记项 |
 
-可以在「更多 → 快捷键设置」里修改。
+关闭窗口只是收到托盘，程序会继续记录。要完全退出，右键托盘图标选「退出剪贴收藏」。
 
-## 从源码运行
+| 截图标注：打码、箭头、文字 | 识别图片文字并翻译回图片 |
+| --- | --- |
+| <img src="screenshots/editor.png" alt="截图编辑器：手机号打码、箭头和文字批注"> | <img src="screenshots/translate.png" alt="文本提取与翻译：英文图片识别后替换为中文译文"> |
 
-需要 Windows 10/11 x64 和 Python 3.12。
+截图中的内容均为虚构示例。
+
+## 配置
+
+都在主窗口右上角的「更多（···）」菜单里：
+
+| 菜单项 | 说明 |
+| --- | --- |
+| 文字识别与 API 设置 | 翻译需要填一个 OpenAI 兼容接口的 Base URL、API Key 和模型。文字识别默认在本机完成，不需要配置；也可以改用 API 识别 |
+| 快捷键设置 | 修改上面这些快捷键 |
+| 历史保留设置 | 最多保留多少条记录，默认 1000 条；固定和特殊标记的记录不计入 |
+| 数据保存位置 | 历史、图片、模型、备份默认放在程序目录的 `data/` 里，可以改到其他地方 |
+| 登录 Windows 后自动启动 | 开机后自动在托盘运行 |
+
+API Key 用 Windows DPAPI 加密保存。默认只有你点「翻译」时，才会把识别出的文字发给接口；只有改用 API 识别时，才会上传图片。
+
+## 开发
+
+需要 Python 3.12：
 
 ```powershell
 pip install -r requirements.txt
-python setup_local_ocr.py   # 把 RapidOCR 自带的模型复制到 data/ocr-models/
-python app.py
+python app.py                  # 从源码运行
+python -m pytest -q            # 运行测试（需先 pip install pytest）
 ```
 
-常用启动参数：
+打包便携版和安装包见 `packaging/build_portable.py --help`；生成安装包需要 [Inno Setup 6](https://jrsoftware.org/isinfo.php)。
 
-| 参数 | 说明 |
-| --- | --- |
-| `--hidden` | 启动后只显示托盘图标 |
-| `--paused` | 以暂停记录模式启动 |
-| `--data-dir <目录>` | 使用单独的数据目录（适合测试） |
-| `--self-check <结果.json>` | 只用合成数据做运行自检 |
+## 许可证
 
-关闭历史窗口只会收起到托盘，程序继续记录；要彻底退出，请右键托盘图标选择「退出剪贴收藏」。
-
-## 翻译接口
-
-在「更多 → 文字识别与 API 设置」里填写 Base URL、API Key 和模型名。接口需要兼容 OpenAI 的 `/v1/chat/completions`。密钥用 Windows DPAPI 加密后保存在本机。只做文字提取不需要配置接口。
-
-## 数据存放
-
-源码运行时，数据默认放在项目下的 `data/` 目录（已被 `.gitignore` 排除），包括：
-
-- `clipboard.sqlite3`：历史数据库
-- `api-settings.json`：接口配置
-- `ocr-models/`：OCR 模型
-- `backups/`：备份
-
-这几类位置都可以在「更多 → 数据保存位置」里分别改到别的目录。便携版的数据放在 EXE 旁边的 `data/` 里。
-
-## 测试
-
-```powershell
-pip install pytest
-python -m pytest -q
-```
-
-测试只使用临时数据库、合成图片和本机模拟接口，不会读取真实剪贴板、屏幕或调用外部 API。
-
-## 打包便携版
-
-```powershell
-pip install -r packaging/requirements-build.txt
-python packaging/build_portable.py --version 1.0.13 --output-dir <空目录>
-```
-
-打包结果是独立的 EXE、运行库和 OCR 模型，使用者不需要安装 Python。第三方许可证见 `packaging/licenses/`，便携版使用说明见 `packaging/使用说明.txt`。
-
-## 项目结构
-
-| 文件 | 作用 |
-| --- | --- |
-| `app.py` | 入口：托盘、全局快捷键、单实例 |
-| `ui.py`、`ui_theme.py` | 历史主窗口与样式 |
-| `storage.py` | SQLite 历史存储、日期归档、保留规则 |
-| `clipboard_capture.py` | 剪贴板监听 |
-| `screenshot.py`、`image_editor.py`、`image_document.py` | 截图与图片编辑器 |
-| `long_capture.py`、`long_stitch.py`、`long_preview.py` | 滚动长截图 |
-| `local_ocr.py`、`api_client.py`、`translation_session.py`、`text_results.py` | 文字提取与翻译 |
-| `window_picker.py`、`window_pin.py`、`external_windows.py` | 窗口置顶 |
-| `*_settings.py`、`data_locations.py` | 各类设置 |
-| `startup_runtime.py`、`windows_integration.py` | DLL 初始化、Windows 集成 |
-| `release_check.py` | 发布自检 |
-| `packaging/` | PyInstaller 打包脚本 |
-| `tests/` | 回归测试 |
+[MIT](LICENSE)
