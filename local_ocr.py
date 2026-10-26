@@ -18,11 +18,27 @@ MODEL_FILES = ("PP-OCRv6_det_small.onnx", "PP-OCRv6_rec_small.onnx",
                "ch_ppocr_mobile_v2.0_cls_mobile.onnx")
 
 
+def prepare_models(model_dir):
+    """模型缺失时从已安装的 rapidocr 包复制，源码运行无需额外准备步骤；不联网下载。"""
+    import importlib.util
+    import shutil
+    model_dir = Path(model_dir)
+    missing = [name for name in MODEL_FILES if not (model_dir / name).is_file()]
+    if not missing:
+        return
+    package = importlib.util.find_spec("rapidocr")
+    source = Path(package.origin).parent / "models" if package is not None else None
+    if source is None or not all((source / name).is_file() for name in missing):
+        raise FileNotFoundError("本地 OCR 模型缺失")
+    model_dir.mkdir(parents=True, exist_ok=True)
+    for name in missing:
+        shutil.copy2(source / name, model_dir / name)
+
+
 def create_engine(model_dir=None):
     model_dir = Path(model_dir).resolve() if model_dir is not None else MODEL_DIR
     from rapidocr import RapidOCR
-    if not all((model_dir / name).is_file() for name in MODEL_FILES):
-        raise FileNotFoundError("本地 OCR 模型缺失")
+    prepare_models(model_dir)
     # 显式使用已准备好的模型，运行时不下载或上传图像。
     return RapidOCR(params={
         "Global.log_level": "error", "Global.model_root_dir": str(model_dir),

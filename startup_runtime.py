@@ -47,6 +47,10 @@ def runtime_layout():
     return environment, environment / "Lib" / "site-packages" / "PySide6", False
 
 
+def is_conda_environment(environment):
+    return (Path(environment) / "conda-meta").is_dir()
+
+
 def bundled_runtime_path(environment):
     system = Path(os.environ.get("SystemRoot", r"C:\Windows"))
     # 便携版只依赖自己的库与 Windows；不会拾取接收者电脑上其他 Python/Qt DLL。
@@ -60,6 +64,10 @@ def prepare_runtime():
     if _prepared or os.name != "nt":
         return
     environment, qt_directory, frozen = runtime_layout()
+    if not frozen and not is_conda_environment(environment):
+        # 普通 Python/venv 的 pip 包各自处理 DLL 目录，也没有 Conda 的 Library/bin；沿用解释器默认行为。
+        _prepared = True
+        return
     os.environ["PATH"] = bundled_runtime_path(environment) if frozen else \
         clean_runtime_path(os.environ.get("PATH", ""), environment)
     plugins = qt_directory / "plugins"

@@ -40,6 +40,18 @@ def test_incomplete_ssl_pair_does_not_fall_back_to_foreign_dll(tmp_path):
     assert not calls
 
 
+def test_plain_python_or_venv_keeps_default_dll_behaviour(tmp_path, monkeypatch):
+    import startup_runtime
+    monkeypatch.setattr(startup_runtime, "_prepared", False)
+    monkeypatch.setattr(startup_runtime.sys, "executable", str(tmp_path / "Scripts" / "python.exe"))
+    monkeypatch.setenv("PATH", "original-path")
+    startup_runtime.prepare_runtime()
+    assert startup_runtime._prepared and os.environ["PATH"] == "original-path"
+    assert not startup_runtime.is_conda_environment(tmp_path / "Scripts")
+    (tmp_path / "conda-meta").mkdir()
+    assert startup_runtime.is_conda_environment(tmp_path)
+
+
 def test_safe_search_directories_still_support_qt_svg_plugins(qt_app):
     from pathlib import Path
     from PySide6.QtGui import QImageReader
