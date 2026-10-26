@@ -58,3 +58,7 @@ python -m pytest -q            # 运行测试（需先 pip install pytest）
 ## 许可证
 
 [MIT](LICENSE)
+
+## 友情链接
+
+本项目积极参与并认可 [LINUX DO 社区](https://linux.do)。
