@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import importlib.metadata as metadata
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -10,7 +11,6 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 PROJECT = Path(__file__).resolve().parents[1]
-WORKSPACE = PROJECT.parent.parent
 
 
 def sha256(path):
@@ -101,16 +101,29 @@ def audit_package(root):
     return inventory
 
 
+def find_iscc():
+    candidates = [os.environ.get("ISCC"), shutil.which("ISCC")]
+    candidates += [str(Path(os.environ[variable]) / folder / "Inno Setup 6" / "ISCC.exe")
+                   for variable, folder in (("LOCALAPPDATA", "Programs"), ("ProgramFiles(x86)", ""),
+                                            ("ProgramFiles", "")) if os.environ.get(variable)]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file():
+            return candidate
+    raise SystemExit("未找到 Inno Setup 6 的 ISCC.exe；可安装 Inno Setup，或用环境变量 ISCC 指定路径。")
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--work-dir", type=Path, default=WORKSPACE / "work" / "portable-build")
+    parser.add_argument("--work-dir", type=Path, default=PROJECT / "build")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--assemble-only", action="store_true")
-    parser.add_argument("--version", default="1.0.13")
+    parser.add_argument("--installer", action="store_true", help="另用 Inno Setup 生成一键安装包")
+    parser.add_argument("--version", default="1.0.14")
     args = parser.parse_args()
     work, output = args.work_dir.resolve(), args.output_dir.resolve()
     if output.exists():
         raise SystemExit("输出目录已存在；请用新目录，避免覆盖用户运行产生的数据。")
+    iscc = find_iscc() if args.installer else None
     if not args.assemble_only:
         subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm",
                         "--distpath", str(work / "dist"), "--workpath", str(work / "build"),
@@ -122,24 +135,31 @@ def main():
     output.mkdir(parents=True)
     root = output / "剪贴收藏"
     shutil.copytree(source, root)
-    models = root / "ocr-models"
-    models.mkdir(exist_ok=True)
-    for name in ("PP-OCRv6_det_small.onnx", "PP-OCRv6_rec_small.onnx",
-                 "ch_ppocr_mobile_v2.0_cls_mobile.onnx"):
-        shutil.copy2(PROJECT / "data" / "ocr-models" / name, models / name)
+    # 模型直接取自构建环境的 rapidocr 包，不依赖本机 data/，干净克隆也能构建。
+    sys.path.insert(0, str(PROJECT))
+    from local_ocr import prepare_models
+    prepare_models(root / "ocr-models")
     shutil.copy2(PROJECT / "packaging" / "使用说明.txt", root / "使用说明.txt")
+    shutil.copy2(PROJECT / "LICENSE", root / "LICENSE.txt")
     collect_notices(root / "第三方许可", root / "_internal")
     inventory = audit_package(root)
     (output / "发布文件清单.json").write_text(json.dumps(inventory, ensure_ascii=False, indent=2), encoding="utf-8")
-    archive = output / f"剪贴收藏-{args.version}-Windows-x64.zip"
+    # 发布附件用 ASCII 文件名：GitHub Release 会改写非 ASCII 的附件名。
+    archive = output / f"ClipboardSaver-{args.version}-Windows-x64.zip"
     with ZipFile(archive, "x", ZIP_DEFLATED, compresslevel=9) as bundle:
         for file in sorted(root.rglob("*")):
             if file.is_file():
                 bundle.write(file, file.relative_to(output).as_posix())
-    digest = sha256(archive)
-    (output / "SHA256.txt").write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
-    print(json.dumps({"archive": str(archive), "bytes": archive.stat().st_size,
-                      "files": len(inventory), "sha256": digest}, ensure_ascii=False))
+    artifacts = [archive]
+    if iscc:
+        subprocess.run([iscc, "/Q", f"/DAppVersion={args.version}", f"/DSourceDir={root}",
+                        f"/DOutputDir={output}", str(PROJECT / "packaging" / "installer" / "clipboard-saver.iss")],
+                       check=True)
+        artifacts.append(output / f"ClipboardSaver-{args.version}-Setup-x64.exe")
+    (output / "SHA256.txt").write_text("".join(f"{sha256(file)}  {file.name}\n" for file in artifacts),
+                                       encoding="utf-8")
+    print(json.dumps({"artifacts": {file.name: file.stat().st_size for file in artifacts},
+                      "files": len(inventory)}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

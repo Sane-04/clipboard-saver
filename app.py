@@ -450,6 +450,9 @@ def main():
                               show_existing=not args.autostart)
     if not instance.primary:
         return 0
+    if getattr(sys, "frozen", False):
+        # 安装包用同名互斥量（AppMutex）判断程序是否在运行，升级/卸载前提示先退出；句柄随进程释放。
+        application._installer_mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "ClipboardSaver.Running")
     controller = ClipboardApplication(application, location_store.locations.history, instance,
                                       location_store=location_store, start_paused=args.paused,
                                       startup_manager=StartupManager(ROOT, data_dir=args.data_dir))

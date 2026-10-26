@@ -1,6 +1,7 @@
 __pycache__/
 .pytest_cache/
 data/
+build/
 *.pyc
 
 # 本机开发资料与个人入口，不进入仓库
